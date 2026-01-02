@@ -267,68 +267,66 @@ def _save_hash(cwd, h):
     p.write_text(h)
 
 
-EXTRACT_RULES_TOOL = """[{
-  "name": "submit_rules",
-  "description": "Submit extracted rules from CLAUDE.md",
-  "input_schema": {
-    "type": "object",
-    "properties": {
-      "rules": {
-        "type": "array",
-        "items": {"type": "string"},
-        "description": "List of rules extracted from CLAUDE.md. Each should be a single, clear, actionable statement."
-      }
-    },
-    "required": ["rules"]
-  }
-}]"""
+# Storage for extracted rules (used by tool callback)
+_extracted_rules = []
 
 
-async def _parse_with_haiku(content, retries=2):
-    """Extract rules via Haiku. Retries if model doesn't use submit_rules tool."""
+async def _parse_with_haiku(content):
+    """Extract rules via Haiku using MCP custom tool."""
     import os
     os.environ["CLAUDE_OBSERVER_ACTIVE"] = "1"
+
+    global _extracted_rules
+    _extracted_rules = []
+
     try:
-        from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions
+        from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions, tool, create_sdk_mcp_server
+        from typing import Any
+
+        @tool("submit_rules", "Submit extracted rules from CLAUDE.md", {
+            "type": "object",
+            "properties": {
+                "rules": {"type": "array", "items": {"type": "string"}, "description": "Array of rule strings"}
+            },
+            "required": ["rules"]
+        })
+        async def submit_rules(args: dict[str, Any]) -> dict[str, Any]:
+            global _extracted_rules
+            _extracted_rules = args.get("rules", [])
+            return {"content": [{"type": "text", "text": f"Stored {len(_extracted_rules)} rules"}]}
+
+        server = create_sdk_mcp_server(
+            name="rules",
+            version="1.0.0",
+            tools=[submit_rules]
+        )
+
         opts = ClaudeAgentOptions(
             model="haiku",
-            tools=EXTRACT_RULES_TOOL,
-            system_prompt="You extract rules from CLAUDE.md files. Use the submit_rules tool to return results."
+            mcp_servers={"rules": server},
+            allowed_tools=["mcp__rules__submit_rules"],
+            system_prompt="Extract rules from CLAUDE.md and use the submit_rules tool to return them."
         )
-        async with ClaudeSDKClient(options=opts) as client:
-            prompt = f"""Extract instructions from this CLAUDE.md as consolidated rules.
+
+        prompt = f"""Extract instructions from this CLAUDE.md as consolidated rules.
 
 Content:
 {content}
 
-Group related points into single dense statements. Combine bullets under the same section/topic into one rule. Include key info from prose and code examples. Aim for fewer comprehensive rules rather than many fragments.
+Group related points into single dense statements. Combine bullets under the same section/topic into one rule. Aim for fewer comprehensive rules rather than many fragments.
 
-Use the submit_rules tool to return the rules."""
+Use the submit_rules tool to return the rules as a list of strings."""
 
+        async with ClaudeSDKClient(options=opts) as client:
             await client.query(prompt)
+            async for msg in client.receive_response():
+                pass  # Just consume the response
 
-            for attempt in range(retries + 1):
-                rules, saw_text = [], False
-
-                async for msg in client.receive_response():
-                    for block in getattr(msg, 'content', []):
-                        if getattr(block, 'type', None) == 'tool_use' and block.name == 'submit_rules':
-                            rules.extend(getattr(block, 'input', {}).get('rules', []))
-                        elif getattr(block, 'type', None) == 'text':
-                            saw_text = True
-
-                if rules:
-                    return [r for r in rules if isinstance(r, str) and len(r) > 10]
-
-                if saw_text and attempt < retries:
-                    print(f"[Observer] CLAUDE.md parse: retrying ({attempt + 1}/{retries})")
-                    await client.query("Use the submit_rules tool to submit the extracted rules.")
-                else:
-                    break
-
-            return []
+        return [r for r in _extracted_rules if isinstance(r, str) and len(r) > 10]
     except Exception as e:
         print(f"[Observer] CLAUDE.md parse failed: {e}")
+        import traceback
+        traceback.print_exc()
         return []
 
 
