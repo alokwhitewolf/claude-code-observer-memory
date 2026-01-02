@@ -20,7 +20,7 @@ stop_daemon() {
         [ -n "$pid" ] && kill "$pid" 2>/dev/null
         rm -f "$PID_FILE"
     fi
-    pkill -f "$PLUGIN_ROOT/daemon.py" 2>/dev/null
+    pkill -f "claude-code-observer-memory.*daemon.py" 2>/dev/null
 }
 
 reset_setup() {
@@ -94,11 +94,13 @@ setup_bg() {
 
 # main
 
+# helper for user messages
+msg() { echo "{\"continue\":true,\"systemMessage\":\"[Observer] $1\"}"; }
+
 # check version change
 CURRENT_VER=$(get_version)
 INSTALLED_VER=$(cat "$VERSION_FILE" 2>/dev/null)
 if [ -n "$CURRENT_VER" ] && [ "$CURRENT_VER" != "$INSTALLED_VER" ]; then
-    echo "[Observer] version change ($INSTALLED_VER -> $CURRENT_VER), resetting..." >&2
     reset_setup
 fi
 
@@ -113,20 +115,23 @@ fi
 # first time?
 if [ ! -f "$SETUP_DONE" ]; then
     if [ -f "$SETUP_LOCK" ]; then
-        echo "[Observer] setup in progress..." >&2
+        msg "installing dependencies..."
+        exit 0
+    fi
+    if [ -f "$SETUP_FAILED" ]; then
+        msg "setup failed - check daemon.log"
         exit 0
     fi
     PYTHON=$(find_python)
     if [ -z "$PYTHON" ]; then
-        echo "[Observer] python 3.10+ required" >&2
-        echo "[Observer] install: brew install python@3.11 (mac) or apt install python3.11 (linux)" >&2
+        msg "python 3.10+ required"
         exit 2
     fi
-    echo "[Observer] installing deps (~2-5 min)..." >&2
+    msg "installing dependencies (~2-5 min)..."
     setup_bg "$PYTHON" "$CURRENT_VER"
     exit 0
 fi
 
 # start
-start_daemon && daemon_running && echo "[Observer] ready" >&2
+start_daemon
 exit 0
