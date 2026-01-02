@@ -1,6 +1,6 @@
 {
   "name": "claude-code-observer-memory",
-  "version": "0.1.9",
+  "version": "0.1.11",
   "description": "Intelligent memory system that learns from your Claude Code sessions and reinforces CLAUDE.md rules",
   "author": {
     "name": "Alok Bishoyi"

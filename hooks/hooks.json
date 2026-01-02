@@ -3,6 +3,9 @@
     "SessionStart": [{"matcher": "startup|resume", "hooks": [
       {"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/scripts/ensure-daemon.sh", "timeout": 10}
     ]}],
+    "UserPromptSubmit": [{"hooks": [
+      {"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/scripts/check-status.sh", "timeout": 1}
+    ]}],
     "PreToolUse": [{"matcher": "*", "hooks": [
       {"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/scripts/run-hook.sh ${CLAUDE_PLUGIN_ROOT}/hooks/pre_tool.py", "timeout": 1}
     ]}],

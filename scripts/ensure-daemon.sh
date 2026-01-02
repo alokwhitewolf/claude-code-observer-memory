@@ -83,9 +83,9 @@ setup_bg() {
         deactivate
 
         touch "$SETUP_DONE"
+        touch "$PLUGIN_ROOT/.setup_just_completed"
         echo "$ver" > "$VERSION_FILE"
         rm -f "$SETUP_LOCK"
-        echo "[Observer] setup complete (v$ver)"
 
         "$VENV/bin/python3" "$PLUGIN_ROOT/daemon.py" &
         echo $! > "$PID_FILE"
@@ -95,7 +95,7 @@ setup_bg() {
 # main
 
 # helper for user messages
-msg() { echo "{\"continue\":true,\"systemMessage\":\"[Observer] $1\"}"; }
+msg() { echo "{\"continue\":true,\"systemMessage\":\"[observer-memory] $1\"}"; }
 
 # check version change
 CURRENT_VER=$(get_version)

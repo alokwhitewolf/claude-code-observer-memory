@@ -63,7 +63,14 @@ def main():
             timeout=0.15
         )
         if r.status_code == 200:
-            inj = r.json().get("inject")
+            resp = r.json()
+            # show notifications as user message
+            notifs = resp.get("notifications", [])
+            if notifs:
+                msg = "[observer-memory] " + "; ".join(notifs)
+                print(json.dumps({"continue": True, "systemMessage": msg}))
+            # inject context
+            inj = resp.get("inject")
             if inj:
                 print(inj)
     except:

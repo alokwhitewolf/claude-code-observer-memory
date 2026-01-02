@@ -19,9 +19,9 @@ fi
 # show status if setup incomplete
 if [ ! -f "$PLUGIN_ROOT/.setup_complete" ]; then
     if [ -f "$PLUGIN_ROOT/.setup_failed" ]; then
-        echo '{"continue":true,"systemMessage":"[Observer] setup failed. Check daemon.log"}'
+        echo '{"continue":true,"systemMessage":"[observer-memory] setup failed. Check daemon.log"}'
     elif [ -f "$PLUGIN_ROOT/.setup_in_progress" ]; then
-        echo '{"continue":true,"systemMessage":"[Observer] installing dependencies..."}'
+        echo '{"continue":true,"systemMessage":"[observer-memory] installing dependencies..."}'
     fi
     exit 0
 fi

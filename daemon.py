@@ -25,6 +25,7 @@ analyzing = defaultdict(bool)
 md_loaded = set()
 msg_counts = defaultdict(int)
 last_activity = time.time()
+notifications = defaultdict(list)  # per-workspace notifications
 
 ANALYZE_EVERY = 10
 WINDOW_SIZE = 30
@@ -123,7 +124,7 @@ async def get_client():
         return None
 
 
-def run_tool(name, inp, store):
+def run_tool(name, inp, store, cwd=None):
     """Execute memory tool, return result string"""
     try:
         if name == "search_memories":
@@ -143,6 +144,8 @@ def run_tool(name, inp, store):
             if not content:
                 return "Error: empty content"
             ok = store.store(content, source="learned", category=inp.get("category"))
+            if ok and cwd:
+                notifications[cwd].append(f"learned: {content}")
             return f"Added: {content[:50]}..." if ok else "Duplicate"
 
         if name == "update_memory":
@@ -198,7 +201,7 @@ Search existing memories, look for corrections/preferences/conventions/specs, ad
                         inp = getattr(block, 'input', {})
                         tid = getattr(block, 'id', None)
 
-                        out = run_tool(name, inp, store)
+                        out = run_tool(name, inp, store, cwd)
                         result["actions"].append({"tool": name, "result": out[:80]})
 
                         if name == "done":
@@ -237,7 +240,7 @@ def load_md(cwd):
     try:
         n = load_claude_md_to_memory(cwd)
         if n:
-            print(f"[Observer] loaded {n} rules from CLAUDE.md")
+            notifications[cwd].append(f"loaded {n} rules from CLAUDE.md")
     except Exception as e:
         print(f"[Observer] CLAUDE.md load failed: {e}")
     md_loaded.add(cwd)
@@ -272,12 +275,16 @@ async def ep_analyze(req: AnalyzeReq):
 @app.post("/get-context")
 async def ep_context(req: InjectReq):
     load_md(req.cwd)
+
+    # collect and clear notifications
+    notifs = notifications.pop(req.cwd, [])
+
     try:
         store = MemoryStore(req.cwd)
         query = req.transcript[-500:] + "\n" + req.context[:500] if req.transcript else req.context[:500]
         mems = store.retrieve(query, top_k=5, min_similarity=0.25)
 
-        if not mems:
+        if not mems and not notifs:
             return {"inject": None}
 
         lines = []
@@ -286,10 +293,15 @@ async def ep_context(req: InjectReq):
             lines.append(f"  {tag} {m.content}")
             store.increment_usage(m.id)
 
-        return {"inject": f"[Observer]:\n" + "\n".join(lines), "count": len(mems)}
+        result = {"count": len(mems)}
+        if lines:
+            result["inject"] = f"[Observer]:\n" + "\n".join(lines)
+        if notifs:
+            result["notifications"] = notifs
+        return result
     except Exception as e:
         print(f"[Observer] context error: {e}")
-        return {"inject": None}
+        return {"inject": None, "notifications": notifs} if notifs else {"inject": None}
 
 
 @app.get("/status")
