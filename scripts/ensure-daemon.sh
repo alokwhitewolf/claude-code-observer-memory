@@ -7,7 +7,27 @@ LOG_FILE="$PLUGIN_ROOT/daemon.log"
 SETUP_DONE="$PLUGIN_ROOT/.setup_complete"
 SETUP_LOCK="$PLUGIN_ROOT/.setup_in_progress"
 SETUP_FAILED="$PLUGIN_ROOT/.setup_failed"
+VERSION_FILE="$PLUGIN_ROOT/.installed_version"
 VENV="$PLUGIN_ROOT/venv"
+
+get_version() {
+    grep -o '"version"[[:space:]]*:[[:space:]]*"[^"]*"' "$PLUGIN_ROOT/.claude-plugin/plugin.json" 2>/dev/null | cut -d'"' -f4
+}
+
+stop_daemon() {
+    if [ -f "$PID_FILE" ]; then
+        pid=$(cat "$PID_FILE" 2>/dev/null)
+        [ -n "$pid" ] && kill "$pid" 2>/dev/null
+        rm -f "$PID_FILE"
+    fi
+    pkill -f "$PLUGIN_ROOT/daemon.py" 2>/dev/null
+}
+
+reset_setup() {
+    stop_daemon
+    rm -f "$SETUP_DONE" "$SETUP_LOCK" "$SETUP_FAILED" "$VERSION_FILE"
+    rm -rf "$VENV"
+}
 
 find_python() {
     for p in python3.12 python3.11 python3.10 \
@@ -37,6 +57,7 @@ start_daemon() {
 
 setup_bg() {
     local py="$1"
+    local ver="$2"
     (
         [ -f "$SETUP_LOCK" ] && exit 0
         touch "$SETUP_LOCK"
@@ -62,8 +83,9 @@ setup_bg() {
         deactivate
 
         touch "$SETUP_DONE"
+        echo "$ver" > "$VERSION_FILE"
         rm -f "$SETUP_LOCK"
-        echo "[Observer] setup complete"
+        echo "[Observer] setup complete (v$ver)"
 
         "$VENV/bin/python3" "$PLUGIN_ROOT/daemon.py" &
         echo $! > "$PID_FILE"
@@ -71,6 +93,15 @@ setup_bg() {
 }
 
 # main
+
+# check version change
+CURRENT_VER=$(get_version)
+INSTALLED_VER=$(cat "$VERSION_FILE" 2>/dev/null)
+if [ -n "$CURRENT_VER" ] && [ "$CURRENT_VER" != "$INSTALLED_VER" ]; then
+    echo "[Observer] version change ($INSTALLED_VER -> $CURRENT_VER), resetting..." >&2
+    reset_setup
+fi
+
 daemon_running && exit 0
 
 # cleanup stale pid
@@ -92,7 +123,7 @@ if [ ! -f "$SETUP_DONE" ]; then
         exit 2
     fi
     echo "[Observer] installing deps (~2-5 min)..." >&2
-    setup_bg "$PYTHON"
+    setup_bg "$PYTHON" "$CURRENT_VER"
     exit 0
 fi
 

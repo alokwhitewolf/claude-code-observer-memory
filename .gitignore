@@ -9,6 +9,7 @@ __pycache__/
 .setup_complete
 .setup_in_progress
 .setup_failed
+.installed_version
 .daemon.pid
 daemon.log
 daemon.error.log

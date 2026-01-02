@@ -6,6 +6,7 @@ Runs on http://127.0.0.1:7888
 import asyncio
 import json
 import os
+import time
 from collections import defaultdict
 
 from fastapi import FastAPI
@@ -23,9 +24,11 @@ client = None
 analyzing = defaultdict(bool)
 md_loaded = set()
 msg_counts = defaultdict(int)
+last_activity = time.time()
 
 ANALYZE_EVERY = 10
 WINDOW_SIZE = 30
+IDLE_TIMEOUT = 1800  # 30 min
 
 TOOLS = """[
   {"name": "search_memories", "description": "Semantic search. Use before adding to check duplicates.", "input_schema": {"type": "object", "properties": {"query": {"type": "string"}, "limit": {"type": "integer", "default": 5}}, "required": ["query"]}},
@@ -348,8 +351,24 @@ async def ep_add(path: str, content: str, source: str = "user"):
         return {"error": str(e)}
 
 
+@app.middleware("http")
+async def track_activity(request, call_next):
+    global last_activity
+    last_activity = time.time()
+    return await call_next(request)
+
+
+async def idle_checker():
+    while True:
+        await asyncio.sleep(60)
+        if time.time() - last_activity > IDLE_TIMEOUT:
+            print("[Observer] idle timeout, shutting down")
+            os._exit(0)
+
+
 @app.on_event("startup")
 async def on_start():
+    asyncio.create_task(idle_checker())
     print("[Observer] ready on http://127.0.0.1:7888")
 
 @app.on_event("shutdown")
