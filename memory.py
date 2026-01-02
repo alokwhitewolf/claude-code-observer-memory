@@ -346,27 +346,8 @@ def _simple_parse(content):
     return [r for r in rules if len(r) > 10][:50]
 
 
-def _parse_sync(cwd):
-    content = _read_md(cwd)
-    if not content:
-        return []
-    import asyncio
-    try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            rules = loop.run_until_complete(_parse_with_haiku(content))
-            if rules:
-                return rules
-        finally:
-            loop.close()
-    except:
-        pass
-    return _simple_parse(content)
-
-
-def load_claude_md_to_memory(cwd, force=False):
-    """Load CLAUDE.md rules into memory. Uses hash to skip if unchanged."""
+async def load_claude_md_to_memory(cwd, force=False):
+    """Load CLAUDE.md rules into memory using Haiku."""
     h = _md_hash(cwd)
     if not h or h == "d41d8cd98f00b204e9800998ecf8427e":  # empty
         return 0
@@ -374,8 +355,12 @@ def load_claude_md_to_memory(cwd, force=False):
     if not force and h == _get_cached_hash(cwd):
         return len(MemoryStore(cwd).get_all(source_filter='claude_md'))
 
+    content = _read_md(cwd)
+    if not content:
+        return 0
+
     print(f"[Observer] parsing CLAUDE.md ({h[:8]}...)")
-    rules = _parse_sync(cwd)
+    rules = await _parse_with_haiku(content)
     if not rules:
         return 0
 

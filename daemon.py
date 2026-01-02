@@ -233,12 +233,12 @@ async def analyze_bg(cwd, transcript, context):
         analyzing[cwd] = False
 
 
-def load_md(cwd):
+async def load_md(cwd):
     """Load CLAUDE.md once per workspace"""
     if cwd in md_loaded:
         return
     try:
-        n = load_claude_md_to_memory(cwd)
+        n = await load_claude_md_to_memory(cwd)
         if n:
             notifications[cwd].append(f"loaded {n} rules from CLAUDE.md")
     except Exception as e:
@@ -250,7 +250,7 @@ def load_md(cwd):
 
 @app.post("/analyze")
 async def ep_analyze(req: AnalyzeReq):
-    load_md(req.cwd)
+    await load_md(req.cwd)
 
     _, total = parse_messages(req.transcript, 1)
     prev = msg_counts.get(req.cwd, 0)
@@ -274,7 +274,7 @@ async def ep_analyze(req: AnalyzeReq):
 
 @app.post("/get-context")
 async def ep_context(req: InjectReq):
-    load_md(req.cwd)
+    await load_md(req.cwd)
 
     # collect and clear notifications
     notifs = notifications.pop(req.cwd, [])
@@ -346,7 +346,7 @@ async def ep_reload(path: str):
         store = MemoryStore(cwd)
         store.clear(source_filter="claude_md")
         md_loaded.discard(cwd)
-        n = load_claude_md_to_memory(cwd)
+        n = await load_claude_md_to_memory(cwd)
         md_loaded.add(cwd)
         return {"reloaded": n}
     except Exception as e:

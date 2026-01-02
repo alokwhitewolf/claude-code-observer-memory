@@ -102,6 +102,7 @@ CURRENT_VER=$(get_version)
 INSTALLED_VER=$(cat "$VERSION_FILE" 2>/dev/null)
 if [ -n "$CURRENT_VER" ] && [ "$CURRENT_VER" != "$INSTALLED_VER" ]; then
     reset_setup
+    sleep 1  # wait for old daemon to die
 fi
 
 daemon_running && exit 0
