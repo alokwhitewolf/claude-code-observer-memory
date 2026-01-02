@@ -227,7 +227,12 @@ class MemoryStore:
 # --- CLAUDE.md parsing ---
 
 def _md_paths(cwd):
-    return [Path(cwd) / "CLAUDE.md", Path(cwd) / ".claude" / "CLAUDE.md", Path(cwd) / "CLAUDE.local.md"]
+    return [
+        Path.home() / ".claude" / "CLAUDE.md",  # global
+        Path(cwd) / "CLAUDE.md",
+        Path(cwd) / ".claude" / "CLAUDE.md",
+        Path(cwd) / "CLAUDE.local.md"
+    ]
 
 def _md_hash(cwd):
     h = hashlib.md5()
