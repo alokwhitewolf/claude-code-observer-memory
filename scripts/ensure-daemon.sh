@@ -8,6 +8,20 @@ SETUP_DONE="$PLUGIN_ROOT/.setup_complete"
 SETUP_LOCK="$PLUGIN_ROOT/.setup_in_progress"
 VENV="$PLUGIN_ROOT/venv"
 
+find_python() {
+    for p in python3.12 python3.11 python3.10 \
+             /opt/homebrew/bin/python3 /usr/local/bin/python3 \
+             /usr/bin/python3.12 /usr/bin/python3.11 /usr/bin/python3.10 \
+             python3; do
+        cmd=$(command -v "$p" 2>/dev/null || echo "$p")
+        if [ -x "$cmd" ]; then
+            ver=$("$cmd" -c 'import sys; print(sys.version_info[:2] >= (3,10))' 2>/dev/null)
+            [ "$ver" = "True" ] && { echo "$cmd"; return 0; }
+        fi
+    done
+    return 1
+}
+
 daemon_running() {
     curl -s --max-time 1 "http://127.0.0.1:7888/status" > /dev/null 2>&1
 }
@@ -21,21 +35,16 @@ start_daemon() {
 }
 
 setup_bg() {
+    local py="$1"
     (
         [ -f "$SETUP_LOCK" ] && exit 0
         touch "$SETUP_LOCK"
         exec >> "$LOG_FILE" 2>&1
 
-        echo "[Observer] first-time setup..."
+        echo "[Observer] setup using $py"
 
-        # find python
-        PYTHON=$(command -v python3 || command -v python)
-        [ -z "$PYTHON" ] && { echo "[Observer] python not found"; rm -f "$SETUP_LOCK"; exit 1; }
+        [ -d "$VENV" ] || "$py" -m venv "$VENV"
 
-        # venv
-        [ -d "$VENV" ] || $PYTHON -m venv "$VENV"
-
-        # deps
         source "$VENV/bin/activate"
         pip install --upgrade pip -q
         [ -f "$PLUGIN_ROOT/requirements.txt" ] && pip install -r "$PLUGIN_ROOT/requirements.txt" -q
@@ -65,8 +74,14 @@ if [ ! -f "$SETUP_DONE" ]; then
         echo "[Observer] setup in progress..." >&2
         exit 0
     fi
+    PYTHON=$(find_python)
+    if [ -z "$PYTHON" ]; then
+        echo "[Observer] python 3.10+ required" >&2
+        echo "[Observer] install: brew install python@3.11 (mac) or apt install python3.11 (linux)" >&2
+        exit 2
+    fi
     echo "[Observer] installing deps (~2-5 min)..." >&2
-    setup_bg
+    setup_bg "$PYTHON"
     exit 0
 fi
 
