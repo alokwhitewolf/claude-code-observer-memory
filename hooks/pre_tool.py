@@ -18,7 +18,7 @@ def check_setup_status():
         reason = failed.read_text().strip() or "unknown error"
         return f"[Observer] setup failed: {reason}. Check daemon.log"
     if lock.exists() and not done.exists():
-        return None  # still installing, stay quiet
+        return "[Observer] still installing dependencies..."
     return None
 
 def main():
