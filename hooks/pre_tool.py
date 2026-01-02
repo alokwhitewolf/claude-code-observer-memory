@@ -23,9 +23,9 @@ def check_setup_status():
 
 def main():
     # check for setup issues
-    err = check_setup_status()
-    if err:
-        print(err, file=sys.stderr)
+    msg = check_setup_status()
+    if msg:
+        print(json.dumps({"systemMessage": msg}))
         sys.exit(0)
 
     try:
