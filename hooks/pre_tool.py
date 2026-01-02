@@ -22,10 +22,10 @@ def check_setup_status():
     return None
 
 def main():
-    # check for setup issues
+    # check for setup issues - show message but don't block
     msg = check_setup_status()
     if msg:
-        print(json.dumps({"systemMessage": msg}))
+        print(json.dumps({"continue": True, "systemMessage": msg}))
         sys.exit(0)
 
     try:
