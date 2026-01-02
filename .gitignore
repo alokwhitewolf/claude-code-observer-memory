@@ -8,6 +8,7 @@ __pycache__/
 # Plugin runtime files
 .setup_complete
 .setup_in_progress
+.setup_failed
 .daemon.pid
 daemon.log
 daemon.error.log

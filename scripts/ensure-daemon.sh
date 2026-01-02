@@ -6,6 +6,7 @@ PID_FILE="$PLUGIN_ROOT/.daemon.pid"
 LOG_FILE="$PLUGIN_ROOT/daemon.log"
 SETUP_DONE="$PLUGIN_ROOT/.setup_complete"
 SETUP_LOCK="$PLUGIN_ROOT/.setup_in_progress"
+SETUP_FAILED="$PLUGIN_ROOT/.setup_failed"
 VENV="$PLUGIN_ROOT/venv"
 
 find_python() {
@@ -39,15 +40,25 @@ setup_bg() {
     (
         [ -f "$SETUP_LOCK" ] && exit 0
         touch "$SETUP_LOCK"
+        rm -f "$SETUP_FAILED"
         exec >> "$LOG_FILE" 2>&1
 
         echo "[Observer] setup using $py"
 
-        [ -d "$VENV" ] || "$py" -m venv "$VENV"
+        if ! "$py" -m venv "$VENV" 2>&1; then
+            echo "venv creation failed" > "$SETUP_FAILED"
+            rm -f "$SETUP_LOCK"
+            exit 1
+        fi
 
         source "$VENV/bin/activate"
         pip install --upgrade pip -q
-        [ -f "$PLUGIN_ROOT/requirements.txt" ] && pip install -r "$PLUGIN_ROOT/requirements.txt" -q
+        if ! pip install -r "$PLUGIN_ROOT/requirements.txt" 2>&1; then
+            echo "pip install failed" > "$SETUP_FAILED"
+            rm -f "$SETUP_LOCK"
+            deactivate
+            exit 1
+        fi
         deactivate
 
         touch "$SETUP_DONE"

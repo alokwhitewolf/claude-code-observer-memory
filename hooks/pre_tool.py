@@ -1,11 +1,33 @@
 #!/usr/bin/env python3
 """PreToolUse hook - injects relevant memories before tool calls."""
 import json, os, sys
+from pathlib import Path
 
 if os.environ.get("CLAUDE_OBSERVER_ACTIVE"):
     sys.exit(0)
 
+def check_setup_status():
+    root = os.environ.get("CLAUDE_PLUGIN_ROOT", "")
+    if not root:
+        return None
+    failed = Path(root) / ".setup_failed"
+    lock = Path(root) / ".setup_in_progress"
+    done = Path(root) / ".setup_complete"
+
+    if failed.exists():
+        reason = failed.read_text().strip() or "unknown error"
+        return f"[Observer] setup failed: {reason}. Check daemon.log"
+    if lock.exists() and not done.exists():
+        return None  # still installing, stay quiet
+    return None
+
 def main():
+    # check for setup issues
+    err = check_setup_status()
+    if err:
+        print(err, file=sys.stderr)
+        sys.exit(0)
+
     try:
         import requests
     except ImportError:
