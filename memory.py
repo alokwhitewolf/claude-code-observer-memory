@@ -291,17 +291,14 @@ async def _parse_with_haiku(content, retries=2):
             system_prompt="You extract rules from CLAUDE.md files. Use the submit_rules tool to return results."
         )
         async with ClaudeSDKClient(options=opts) as client:
-            prompt = f"""Extract all rules, instructions, and guidelines from this CLAUDE.md content.
+            prompt = f"""Extract instructions from this CLAUDE.md as consolidated rules.
 
 Content:
-{content[:8000]}
+{content}
 
-Each rule should be:
-- A single, clear, actionable statement
-- Self-contained (understandable without context)
-- Concise but complete
+Group related points into single dense statements. Combine bullets under the same section/topic into one rule. Include key info from prose and code examples. Aim for fewer comprehensive rules rather than many fragments.
 
-Use the submit_rules tool to return the extracted rules."""
+Use the submit_rules tool to return the rules."""
 
             await client.query(prompt)
 
