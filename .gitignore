@@ -1,0 +1,24 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Plugin runtime files
+.setup_complete
+.setup_in_progress
+.daemon.pid
+daemon.log
+daemon.error.log
+
+# Workspace data (each workspace has its own)
+.claude-observer/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

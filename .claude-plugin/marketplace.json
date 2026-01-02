@@ -1,0 +1,13 @@
+{
+  "name": "claude-code-observer-memory",
+  "owner": {
+    "name": "Alok Bishoyi"
+  },
+  "plugins": [
+    {
+      "name": "claude-code-observer-memory",
+      "source": "./",
+      "description": "Learns from Claude Code sessions and injects relevant context"
+    }
+  ]
+}
