@@ -2,6 +2,18 @@
 # Wrapper for python hooks
 
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(dirname "$(dirname "$0")")}"
+VERSION_FILE="$PLUGIN_ROOT/.installed_version"
+
+# check if daemon running from old version - kill it
+get_version() {
+    grep -o '"version"[[:space:]]*:[[:space:]]*"[^"]*"' "$PLUGIN_ROOT/.claude-plugin/plugin.json" 2>/dev/null | cut -d'"' -f4
+}
+CURRENT_VER=$(get_version)
+INSTALLED_VER=$(cat "$VERSION_FILE" 2>/dev/null)
+if [ -n "$CURRENT_VER" ] && [ -n "$INSTALLED_VER" ] && [ "$CURRENT_VER" != "$INSTALLED_VER" ]; then
+    pkill -f "$PLUGIN_ROOT/daemon.py" 2>/dev/null
+    rm -f "$PLUGIN_ROOT/.setup_complete" "$VERSION_FILE"
+fi
 
 # show status if setup incomplete
 if [ ! -f "$PLUGIN_ROOT/.setup_complete" ]; then
